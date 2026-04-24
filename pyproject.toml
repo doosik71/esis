@@ -8,7 +8,10 @@ version = "0.1.0"
 description = "Segmentation-based surgical instrument tip tracking experiments."
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "numpy>=2.4.4",
+    "opencv-python-headless>=4.13.0.92",
+]
 
 [project.scripts]
 esis = "esis.cli.app:main"
