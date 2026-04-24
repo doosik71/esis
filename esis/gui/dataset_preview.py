@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 
 from esis.datasets import DatasetSample, ensure_dataset_index
-from esis.segmentation import ClassicalInstrumentSegmenter, MaskLoaderSegmenter
+from esis.segmentation import available_segmenters, create_segmenter
 from esis.utils.config import default_dataset_roots, project_root
 from esis.utils.io import (
     as_bgr,
@@ -31,15 +31,14 @@ class DatasetPreviewApp:
         self.sample_var = tk.StringVar()
         self.status_var = tk.StringVar(value="Ready")
         self.frame_var = tk.IntVar(value=0)
-        self.segmenter_var = tk.StringVar(value="classical_threshold")
+        self.segmenter_var = tk.StringVar(value="mask_loader")
 
         self.project_root = project_root()
         self.dataset_roots = default_dataset_roots(self.project_root)
         self.dataset_indexes: dict[str, object] = {}
         self.dataset_samples: dict[str, list[DatasetSample]] = {}
         self.selected_sample: DatasetSample | None = None
-        self.classical_segmenter = ClassicalInstrumentSegmenter()
-        self.mask_loader_segmenter = MaskLoaderSegmenter()
+        self.segmenters = {name: create_segmenter(name) for name in available_segmenters()}
         self.current_raw_photo: tk.PhotoImage | None = None
         self.current_label_photo: tk.PhotoImage | None = None
         self.current_segmentation_photo: tk.PhotoImage | None = None
@@ -70,7 +69,7 @@ class DatasetPreviewApp:
         segmenter_box = ttk.Combobox(
             top_bar,
             textvariable=self.segmenter_var,
-            values=["classical_threshold", "mask_loader"],
+            values=available_segmenters(),
             state="readonly",
             width=20,
         )
@@ -256,10 +255,7 @@ class DatasetPreviewApp:
             return None
         segmenter_name = self.segmenter_var.get()
         try:
-            if segmenter_name == "mask_loader":
-                result = self.mask_loader_segmenter.segment(raw, sample)
-            else:
-                result = self.classical_segmenter.segment(raw, sample)
+            result = self.segmenters[segmenter_name].segment(raw, sample)
         except Exception:
             return None
         return self._render_segmentation_overlay(raw, result.mask)

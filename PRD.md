@@ -30,6 +30,7 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 
 - Build common dataset loaders for EndoVis17 and EndoVis18.
 - Build a segmentation-to-tip localization pipeline for still images and frame sequences.
+- Implement four deep-learning segmentation backends behind one unified inference interface.
 - Build a temporal tracker for tip positions in video.
 - Save tracking results as visual overlays and coordinate files.
 
@@ -38,6 +39,7 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 - Make the segmentation module replaceable.
 - Support lightweight post-processing and temporal filtering.
 - Provide evaluation scripts for both speed and localization quality.
+- Allow side-by-side comparison across segmentation backends using the same dataset and visualization tooling.
 
 ## 4. Non-goals
 
@@ -74,6 +76,12 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 - Support binary or multi-class instrument segmentation outputs.
 - Accept either online model inference or precomputed segmentation masks.
 - Support both single-frame and batch inference workflows.
+- Expose a unified segmenter interface regardless of model family.
+- Support the following model families in the current roadmap:
+  - ViT + CNN adapter style supervised model
+  - MATIS-style masked-attention transformer model
+  - SurgSAM-2 style surgical video segmentation model
+  - SAM2 zero-shot promptable segmentation mode
 
 ### 6.3 Tip Localization
 
@@ -144,7 +152,13 @@ esis/
   segmentation/
     base.py
     classical.py
+    adapter_vit_cnn.py
+    matis.py
     model_wrapper.py
+    sam2_zero_shot.py
+    surgsam2.py
+    preprocessing.py
+    postprocessing.py
   tracking/
     tip_detector.py
     temporal_filter.py
@@ -171,7 +185,7 @@ temp/
 Pipeline:
 
 1. A dataset loader reads frames and metadata.
-2. A segmentation module generates or loads instrument masks.
+2. A segmentation module generates or loads instrument masks through a unified segmenter API.
 3. A tip detector estimates tip candidates from geometry.
 4. A tracker combines current evidence with previous frame history.
 5. Visualization and evaluation modules save outputs and compute metrics.
@@ -191,9 +205,15 @@ Pipeline:
 - Implement EndoVis18 indexing and loading
 - Validate sample frame loading and metadata parsing
 
-### Phase 3. Baseline segmentation and tip detection
+### Phase 3. Segmentation backends and tip detection
 
-- Add a classical baseline or pretrained segmentation wrapper
+- Finalize the shared segmentation interface
+- Keep the existing mask-loader baseline for verification
+- Implement the `adapter_vit_cnn` backend
+- Implement the `matis` backend
+- Implement the `surgsam2` backend
+- Implement the `sam2_zero_shot` backend
+- Add backend-specific wrappers while preserving one common call pattern
 - Extract the instrument region with connected components
 - Estimate tip position from contour extremity and skeleton analysis
 
@@ -212,6 +232,7 @@ Pipeline:
 ## 11. Success Criteria
 
 - The system outputs tip coordinates on sample sequences from EndoVis17 and EndoVis18.
+- All four deep-learning segmentation backends can be invoked through one consistent API.
 - Tracking results can be visualized as overlays or videos.
 - The pipeline runs fast enough for iterative experiments.
 - All experiments are reproducible without changing original datasets.
@@ -222,6 +243,8 @@ Pipeline:
   - Mitigation: combine contour-based and skeleton-based candidates.
 - Annotation formats differ across datasets.
   - Mitigation: isolate dataset-specific logic behind adapter layers.
+- Different segmentation backends may require different prompt, preprocessing, or checkpoint conventions.
+  - Mitigation: hide backend-specific setup behind a unified wrapper layer and standardized config schema.
 - Real-time performance may be difficult.
   - Mitigation: use ROI cropping, frame skipping, lightweight models, and efficient post-processing.
 
@@ -242,6 +265,6 @@ Pipeline:
 
 1. Create the `esis/` package and CLI skeleton.
 2. Implement EndoVis17 and EndoVis18 dataset loaders.
-3. Implement a baseline segmentation-to-tip localization pipeline.
+3. Implement the shared segmentation interface and the four deep-learning segmentation backends.
 4. Add tracking and visualization.
 5. Add benchmarking and experiment automation.

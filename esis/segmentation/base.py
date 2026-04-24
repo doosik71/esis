@@ -26,7 +26,7 @@ class SegmentationResult:
 
 
 class SegmentationModel(Protocol):
-    def predict(self, image: np.ndarray, sample: DatasetSample | None = None) -> np.ndarray:
+    def predict(self, image: Any, sample: DatasetSample | None = None) -> Any:
         """Return a mask-like output for one image."""
 
 
@@ -47,3 +47,6 @@ class BaseSegmenter(ABC):
             sample = samples[index] if samples is not None and index < len(samples) else None
             results.append(self.segment(image, sample=sample))
         return results
+
+    def get_name(self) -> str:
+        return self.name

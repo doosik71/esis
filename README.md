@@ -22,6 +22,7 @@ Notes:
 
 - EndoVis17 and EndoVis18 dataset loading
 - Instrument segmentation result loading or generation
+- Four interchangeable deep-learning segmentation backends with one consistent interface
 - Tip localization from segmentation masks
 - Temporal tip tracking across frames
 - Visualization export and coordinate export
@@ -50,9 +51,21 @@ Notes:
 
 1. Prepare project documents and baseline structure.
 2. Implement dataset adapters for EndoVis17 and EndoVis18.
-3. Implement a baseline segmentation and tip detection pipeline.
+3. Implement a unified segmentation interface and four deep-learning segmentation backends.
 4. Add temporal tracking and visualization.
 5. Add benchmarking and experiment utilities.
+
+## Segmentation Backends
+
+The project will implement the following segmentation backends behind one shared interface.
+
+- `mask_loader`: dataset ground-truth mask loader for validation and debugging
+- `adapter_vit_cnn`: ViT + CNN adapter style supervised model
+- `matis`: masked-attention transformer style model for surgical instrument segmentation
+- `surgsam2`: surgical SAM2-style video segmentation model
+- `sam2_zero_shot`: promptable SAM2 zero-shot segmentation mode
+
+The first item is a non-learning baseline for verification. The latter four are the active deep-learning model targets for this project.
 
 ## Tracking Idea
 
@@ -70,4 +83,4 @@ The initial tracking pipeline will follow this flow:
 
 ## Current Status
 
-The project is currently focused on EndoVis17 and EndoVis18. The next implementation steps should prioritize those two datasets first.
+The project is currently focused on EndoVis17 and EndoVis18. The next implementation steps should prioritize those two datasets first and then add the four deep-learning segmentation backends behind one shared API.

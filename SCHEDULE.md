@@ -125,25 +125,31 @@ Verify that dataset adapters are correct and easy to inspect.
 
 ### Goal
 
-Build the first working segmentation stage that feeds the tip tracker.
+Build the segmentation layer that feeds the tip tracker, with one shared interface and multiple backend implementations.
 
 ### Tasks
 
 - Define a segmentation interface
-- Implement a simple classical baseline or mask-loader baseline
-- Add model wrapper support for future learned backbones
+- Keep a simple mask-loader baseline for validation
+- Implement `adapter_vit_cnn`
+- Implement `matis`
+- Implement `surgsam2`
+- Implement `sam2_zero_shot`
+- Add model wrapper support so all backends share one call pattern
 - Add pre-processing and post-processing helpers
 
 ### Deliverables
 
 - Segmentation base classes
-- Baseline segmentation implementation
+- Four deep-learning segmentation backends
+- Verification baseline segmentation implementation
 - Reusable segmentation pipeline entry point
 
 ### Exit criteria
 
 - The system can generate or load instrument masks for sample frames.
-- The segmentation module can be swapped without changing downstream code.
+- All segmentation backends conform to one consistent interface.
+- The segmentation backend can be swapped without changing downstream code.
 
 ## Phase 5. Tip Localization
 
@@ -309,4 +315,4 @@ Improve accuracy, speed, and code quality after the baseline is working.
 1. Create the `esis/` package skeleton.
 2. Create the `temp/` directory conventions.
 3. Implement the dataset registry and dataset adapters.
-4. Add a first end-to-end baseline from mask input to tip output.
+4. Add the unified segmentation interface and the planned segmentation backends.

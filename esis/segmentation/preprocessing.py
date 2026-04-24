@@ -21,6 +21,16 @@ def ensure_grayscale(image: np.ndarray) -> np.ndarray:
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 
+def ensure_three_channels(image: np.ndarray) -> np.ndarray:
+    if image.ndim == 2:
+        return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    if image.ndim == 3 and image.shape[2] == 1:
+        return cv2.cvtColor(image[:, :, 0], cv2.COLOR_GRAY2BGR)
+    if image.ndim == 3 and image.shape[2] == 4:
+        return cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    return image.copy()
+
+
 def normalize_image(image: np.ndarray) -> np.ndarray:
     array = image.astype(np.float32)
     min_value = float(array.min()) if array.size else 0.0
@@ -42,8 +52,56 @@ def resize_like(image: np.ndarray, target_shape_hw: tuple[int, int]) -> np.ndarr
     return cv2.resize(image, (target_w, target_h), interpolation=cv2.INTER_NEAREST)
 
 
+def resize_image(
+    image: np.ndarray,
+    target_shape_hw: tuple[int, int],
+    interpolation: int = cv2.INTER_LINEAR,
+) -> np.ndarray:
+    target_h, target_w = target_shape_hw
+    return cv2.resize(image, (target_w, target_h), interpolation=interpolation)
+
+
+def pad_to_shape(
+    image: np.ndarray,
+    target_shape_hw: tuple[int, int],
+    border_value: int | tuple[int, int, int] = 0,
+) -> np.ndarray:
+    target_h, target_w = target_shape_hw
+    height, width = image.shape[:2]
+    pad_h = max(target_h - height, 0)
+    pad_w = max(target_w - width, 0)
+    top = pad_h // 2
+    bottom = pad_h - top
+    left = pad_w // 2
+    right = pad_w - left
+    return cv2.copyMakeBorder(image, top, bottom, left, right, cv2.BORDER_CONSTANT, value=border_value)
+
+
+def pad_to_stride(
+    image: np.ndarray,
+    stride: int,
+    border_value: int | tuple[int, int, int] = 0,
+) -> np.ndarray:
+    height, width = image.shape[:2]
+    target_h = ((height + stride - 1) // stride) * stride
+    target_w = ((width + stride - 1) // stride) * stride
+    return pad_to_shape(image, (target_h, target_w), border_value=border_value)
+
+
+def imagenet_normalize(image: np.ndarray) -> np.ndarray:
+    array = normalize_image(ensure_three_channels(image)).astype(np.float32)
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    return (array - mean) / std
+
+
 def prepare_model_input(image: np.ndarray) -> np.ndarray:
     normalized = normalize_image(image)
     if normalized.ndim == 2:
         normalized = normalized[:, :, None]
+    return np.transpose(normalized, (2, 0, 1))
+
+
+def prepare_imagenet_input(image: np.ndarray) -> np.ndarray:
+    normalized = imagenet_normalize(image)
     return np.transpose(normalized, (2, 0, 1))
