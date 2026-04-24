@@ -8,10 +8,18 @@
 - Do not create cache files, logs, checkpoints, indexes, or temporary outputs inside `data/`.
 - Store all generated artifacts in locations such as `temp/`, not in `data/`.
 - This policy applies to all target dataset paths, including:
-  - `data/EndoVis15 Instrument Subchallenge Dataset`
   - `data/EndoVis17 Instrument Subchallenge Dataset`
   - `data/EndoVis18 Instrument Subchallenge Dataset`
-  - `data/EndoVis19 Instrument Subchallenge Dataset`
+
+Current active development scope:
+
+- `data/EndoVis17 Instrument Subchallenge Dataset`
+- `data/EndoVis18 Instrument Subchallenge Dataset`
+
+Currently excluded from implementation work:
+
+- `data/EndoVis15 Instrument Subchallenge Dataset`
+- `data/EndoVis19 Instrument Subchallenge Dataset`
 
 ## Package Management Policy
 

@@ -3,17 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from esis.datasets.base import BaseDatasetAdapter
-from esis.datasets.endovis15 import EndoVis15Adapter
 from esis.datasets.endovis17 import EndoVis17Adapter
 from esis.datasets.endovis18 import EndoVis18Adapter
-from esis.datasets.endovis19 import EndoVis19Adapter
 from esis.datasets.schema import DatasetIndex
 
 DATASET_REGISTRY: dict[str, type[BaseDatasetAdapter]] = {
-    "endovis15": EndoVis15Adapter,
     "endovis17": EndoVis17Adapter,
     "endovis18": EndoVis18Adapter,
-    "endovis19": EndoVis19Adapter,
 }
 
 

@@ -6,9 +6,12 @@ This project aims to build a Python program that tracks the tip of surgical inst
 
 The target datasets for this project are:
 
-- `data/EndoVis15 Instrument Subchallenge Dataset`
 - `data/EndoVis17 Instrument Subchallenge Dataset`
 - `data/EndoVis18 Instrument Subchallenge Dataset`
+
+Datasets excluded from the current development scope:
+
+- `data/EndoVis15 Instrument Subchallenge Dataset`
 - `data/EndoVis19 Instrument Subchallenge Dataset`
 
 Important constraints:
@@ -25,7 +28,7 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 
 ### 3.1 Primary goals
 
-- Build common dataset loaders for EndoVis15, EndoVis17, EndoVis18, and EndoVis19.
+- Build common dataset loaders for EndoVis17 and EndoVis18.
 - Build a segmentation-to-tip localization pipeline for still images and frame sequences.
 - Build a temporal tracker for tip positions in video.
 - Save tracking results as visual overlays and coordinate files.
@@ -61,7 +64,7 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 
 ### 6.1 Data I/O
 
-- Provide dataset adapters that handle the different folder structures of EndoVis15, EndoVis17, EndoVis18, and EndoVis19.
+- Provide dataset adapters that handle the different folder structures of EndoVis17 and EndoVis18.
 - Read images, masks, and sequence metadata through a common API.
 - Treat dataset folders as read-only inputs.
 - Store all generated outputs under `temp/` or a user-specified output path.
@@ -107,11 +110,6 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 
 ## 8. Dataset Plan
 
-### EndoVis15
-
-- Includes separate segmentation and tracking directories.
-- Contains robotic and rigid scenes that likely need dataset-specific parsing.
-
 ### EndoVis17
 
 - Uses `train` and `val1` to `val10` splits.
@@ -122,10 +120,10 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 - Should be supported through the same adapter-oriented design used for the earlier EndoVis datasets.
 - Exact folder and annotation handling should be documented when the dataset parser is implemented.
 
-### EndoVis19
+### Excluded for now
 
-- Should be integrated through the same dataset adapter abstraction used for EndoVis15, EndoVis17, and EndoVis18.
-- Parser details and annotation mapping should be documented when the dataset-specific loader is implemented.
+- EndoVis15 and EndoVis19 are intentionally excluded from the current implementation scope.
+- Their adapters may remain in the repository for future work, but active development and validation should target EndoVis17 and EndoVis18.
 
 ### Dataset handling rules
 
@@ -140,10 +138,8 @@ Expected project structure:
 ```text
 esis/
   datasets/
-    endovis15.py
     endovis17.py
     endovis18.py
-    endovis19.py
     registry.py
   segmentation/
     base.py
@@ -191,10 +187,8 @@ Pipeline:
 
 ### Phase 2. Dataset adapters
 
-- Implement EndoVis15 indexing and loading
 - Implement EndoVis17 indexing and loading
 - Implement EndoVis18 indexing and loading
-- Implement EndoVis19 indexing and loading
 - Validate sample frame loading and metadata parsing
 
 ### Phase 3. Baseline segmentation and tip detection
@@ -217,7 +211,7 @@ Pipeline:
 
 ## 11. Success Criteria
 
-- The system outputs tip coordinates on sample sequences from the available EndoVis15, EndoVis17, EndoVis18, and EndoVis19 datasets.
+- The system outputs tip coordinates on sample sequences from EndoVis17 and EndoVis18.
 - Tracking results can be visualized as overlays or videos.
 - The pipeline runs fast enough for iterative experiments.
 - All experiments are reproducible without changing original datasets.
@@ -247,7 +241,7 @@ Pipeline:
 ## 14. Next Priorities
 
 1. Create the `esis/` package and CLI skeleton.
-2. Implement EndoVis15, EndoVis17, EndoVis18, and EndoVis19 dataset loaders.
+2. Implement EndoVis17 and EndoVis18 dataset loaders.
 3. Implement a baseline segmentation-to-tip localization pipeline.
 4. Add tracking and visualization.
 5. Add benchmarking and experiment automation.

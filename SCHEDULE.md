@@ -6,9 +6,12 @@ This document defines the sequential development schedule for the surgical instr
 
 Target datasets:
 
-- `data/EndoVis15 Instrument Subchallenge Dataset`
 - `data/EndoVis17 Instrument Subchallenge Dataset`
 - `data/EndoVis18 Instrument Subchallenge Dataset`
+
+Excluded from the current development phase:
+
+- `data/EndoVis15 Instrument Subchallenge Dataset`
 - `data/EndoVis19 Instrument Subchallenge Dataset`
 
 Development rules:
@@ -72,16 +75,14 @@ Create the base Python package structure and execution entry points.
 
 ### Goal
 
-Implement a unified dataset interface for all target EndoVis datasets.
+Implement a unified dataset interface for the active EndoVis17 and EndoVis18 datasets.
 
 ### Tasks
 
 - Define a common dataset sample schema
 - Implement dataset registry logic
-- Implement `endovis15.py`
 - Implement `endovis17.py`
 - Implement `endovis18.py`
-- Implement `endovis19.py`
 - Add metadata parsing and sequence indexing
 - Save generated indexes under `temp/index/`
 

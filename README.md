@@ -10,18 +10,17 @@ ESIS is a Python project for fast surgical instrument tip tracking based on surg
 
 ## Initial Target Datasets
 
-- `data/EndoVis15 Instrument Subchallenge Dataset`
 - `data/EndoVis17 Instrument Subchallenge Dataset`
 - `data/EndoVis18 Instrument Subchallenge Dataset`
-- `data/EndoVis19 Instrument Subchallenge Dataset`
 
 Notes:
 
-- These four datasets are currently present in the local workspace as of 2026-04-24.
+- For the current development scope, EndoVis17 and EndoVis18 are the active target datasets.
+- EndoVis15 and EndoVis19 are present in the repository, but they are excluded from this development phase.
 
 ## Planned Features
 
-- EndoVis15, EndoVis17, EndoVis18, and EndoVis19 dataset loading
+- EndoVis17 and EndoVis18 dataset loading
 - Instrument segmentation result loading or generation
 - Tip localization from segmentation masks
 - Temporal tip tracking across frames
@@ -50,7 +49,7 @@ Notes:
 ## Development Plan
 
 1. Prepare project documents and baseline structure.
-2. Implement dataset adapters for EndoVis15, EndoVis17, EndoVis18, and EndoVis19.
+2. Implement dataset adapters for EndoVis17 and EndoVis18.
 3. Implement a baseline segmentation and tip detection pipeline.
 4. Add temporal tracking and visualization.
 5. Add benchmarking and experiment utilities.
@@ -71,4 +70,4 @@ The initial tracking pipeline will follow this flow:
 
 ## Current Status
 
-The project is currently in the planning stage. The next step is to create the package skeleton and implement dataset loaders for EndoVis15, EndoVis17, EndoVis18, and EndoVis19.
+The project is currently focused on EndoVis17 and EndoVis18. The next implementation steps should prioritize those two datasets first.
