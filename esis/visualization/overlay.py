@@ -1,0 +1,1 @@
+"""Frame overlay placeholder."""

@@ -1,0 +1,17 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Project environments
+/.venv
+/data
+
+# Project outputs
+/temp/cache/
+/temp/debug/
+/temp/index/
+/temp/runs/

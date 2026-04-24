@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "esis"
+version = "0.1.0"
+description = "Segmentation-based surgical instrument tip tracking experiments."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+esis = "esis.cli.app:main"
+
+[dependency-groups]
+dev = []
+
+[tool.uv]
+package = true
