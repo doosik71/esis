@@ -1,93 +1,89 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from pathlib import Path
 
-import cv2
 import numpy as np
 
 from esis.datasets.schema import DatasetSample
-from esis.segmentation.base import SegmentationModel
-from esis.segmentation.model_wrapper import ModelWrapperConfig, ModelWrapperSegmenter
-from esis.segmentation.postprocessing import binary_mask
-from esis.segmentation.preprocessing import ensure_grayscale, resize_image
+from esis.segmentation.base import BaseSegmenter, SegmentationResult
+from esis.segmentation.postprocessing import postprocess_binary_mask
+from esis.segmentation.torch_utils import pick_best_mask, resolve_device, to_rgb_uint8, vendor_path
 
 
 @dataclass(slots=True)
 class SurgSam2Config:
-    input_size: tuple[int, int] = (512, 512)
-    threshold: float = 0.52
-    min_component_area: int = 160
-    checkpoint_path: str | None = None
-    temporal_smoothing: float = 0.65
+    vendor_root: str = "temp/cache/vendors/Surgical-SAM-2"
+    model_id: str = "facebook/sam2.1-hiera-tiny"
+    device: str | None = None
+    threshold: float = 0.0
+    min_component_area: int = 96
+    keep_largest_component_only: bool = True
+    close_kernel_size: int = 5
+    use_temporal_memory: bool = True
 
 
-class _SurgSam2ProxyModel(SegmentationModel):
-    def __init__(self, config: SurgSam2Config) -> None:
-        self.config = config
-        self.previous_logits_by_sequence: dict[str, np.ndarray] = {}
-
-    def predict(self, image: np.ndarray, sample: DatasetSample | None = None) -> np.ndarray:
-        resized = resize_image(image, self.config.input_size)
-        gray = ensure_grayscale(resized)
-        gray_f = gray.astype(np.float32) / 255.0
-
-        _, coarse = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-        coarse = cv2.GaussianBlur(coarse.astype(np.float32) / 255.0, (0, 0), 4.0)
-
-        sequence_id = sample.sequence_id if sample is not None else "__default__"
-        if sequence_id in self.previous_logits_by_sequence:
-            previous = self.previous_logits_by_sequence[sequence_id]
-            logits = self.config.temporal_smoothing * previous + (1.0 - self.config.temporal_smoothing) * coarse
-        else:
-            logits = coarse
-        self.previous_logits_by_sequence[sequence_id] = logits
-        return np.clip(logits + 0.15 * gray_f, 0.0, 1.0)
-
-
-class SurgSam2Segmenter(ModelWrapperSegmenter):
+class SurgSam2Segmenter(BaseSegmenter):
     name = "surgsam2"
 
-    def __init__(
-        self,
-        model: SegmentationModel | None = None,
-        config: SurgSam2Config | None = None,
-    ) -> None:
-        self.backend_config = config or SurgSam2Config()
-        backend_model = model or _SurgSam2ProxyModel(self.backend_config)
-        super().__init__(
-            model=backend_model,
-            config=ModelWrapperConfig(
-                apply_sigmoid_threshold=True,
-                threshold=self.backend_config.threshold,
-                keep_largest_component_only=True,
-                min_component_area=self.backend_config.min_component_area,
-                close_kernel_size=7,
-                fill_holes=True,
-            ),
-            model_name="surgsam2",
-            backend_name=self.name,
-            preprocess=self._preprocess,
-            postprocess=self._postprocess,
+    def __init__(self, config: SurgSam2Config | None = None) -> None:
+        self.config = config or SurgSam2Config()
+        self.device = resolve_device(self.config.device)
+        vendor_root = Path(self.config.vendor_root)
+        if not vendor_root.exists():
+            raise FileNotFoundError(f"SurgSAM-2 vendor repository not found: {vendor_root}")
+
+        with vendor_path(vendor_root):
+            from sam2.sam2_image_predictor import SAM2ImagePredictor
+
+            self.predictor = SAM2ImagePredictor.from_pretrained(self.config.model_id, device=str(self.device))
+
+        self.previous_low_res_masks: dict[str, np.ndarray] = {}
+
+    def _build_prompts(self, rgb: np.ndarray, sample: DatasetSample | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        height, width = rgb.shape[:2]
+        points = np.array([[width / 2.0, height / 2.0]], dtype=np.float32)
+        labels = np.array([1], dtype=np.int32)
+        box = np.array([width * 0.2, height * 0.2, width * 0.8, height * 0.8], dtype=np.float32)
+        return points, labels, box
+
+    def segment(self, image: np.ndarray, sample: DatasetSample | None = None) -> SegmentationResult:
+        rgb = to_rgb_uint8(image)
+        sequence_id = sample.sequence_id if sample is not None else "__default__"
+        points, labels, box = self._build_prompts(rgb, sample=sample)
+
+        self.predictor.set_image(rgb)
+        previous = self.previous_low_res_masks.get(sequence_id) if self.config.use_temporal_memory else None
+        masks, scores, low_res = self.predictor.predict(
+            point_coords=points,
+            point_labels=labels,
+            box=box,
+            mask_input=previous,
+            multimask_output=True,
+            return_logits=True,
         )
+        best_mask = pick_best_mask(masks, scores=scores)
+        best_low_res = pick_best_mask(low_res, scores=scores)
+        if self.config.use_temporal_memory:
+            self.previous_low_res_masks[sequence_id] = best_low_res[None, ...]
 
-    def _preprocess(self, image: np.ndarray, sample: DatasetSample | None = None) -> dict[str, Any]:
-        return {
-            "resized_image": resize_image(image, self.backend_config.input_size),
-            "original_shape": image.shape[:2],
-            "sequence_id": sample.sequence_id if sample is not None else "unknown",
-            "frame_index": sample.frame_index if sample is not None else None,
-        }
-
-    def _postprocess(
-        self,
-        output: Any,
-        original_image: np.ndarray,
-        sample: DatasetSample | None = None,
-        prepared: Any | None = None,
-    ) -> np.ndarray:
-        array = np.asarray(output)
-        if array.ndim == 3:
-            array = array[0]
-        mask = binary_mask(array, threshold=self.backend_config.threshold)
-        return resize_image(mask, original_image.shape[:2], interpolation=cv2.INTER_NEAREST)
+        mask = (best_mask > self.config.threshold).astype(np.uint8) * 255
+        mask = postprocess_binary_mask(
+            mask,
+            min_component_area=self.config.min_component_area,
+            keep_largest_component_only=self.config.keep_largest_component_only,
+            close_kernel_size=self.config.close_kernel_size,
+            fill_holes=True,
+        )
+        sample_id = sample.sample_id if sample is not None else "unknown"
+        return SegmentationResult(
+            sample_id=sample_id,
+            mask=mask,
+            metadata={
+                "segmenter": self.name,
+                "model_type": "official_surgsam2",
+                "model_id": self.config.model_id,
+                "device": str(self.device),
+                "used_temporal_memory": self.config.use_temporal_memory,
+            },
+        )

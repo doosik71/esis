@@ -38,7 +38,7 @@ class DatasetPreviewApp:
         self.dataset_indexes: dict[str, object] = {}
         self.dataset_samples: dict[str, list[DatasetSample]] = {}
         self.selected_sample: DatasetSample | None = None
-        self.segmenters = {name: create_segmenter(name) for name in available_segmenters()}
+        self.segmenters: dict[str, object] = {}
         self.current_raw_photo: tk.PhotoImage | None = None
         self.current_label_photo: tk.PhotoImage | None = None
         self.current_segmentation_photo: tk.PhotoImage | None = None
@@ -255,6 +255,8 @@ class DatasetPreviewApp:
             return None
         segmenter_name = self.segmenter_var.get()
         try:
+            if segmenter_name not in self.segmenters:
+                self.segmenters[segmenter_name] = create_segmenter(segmenter_name)
             result = self.segmenters[segmenter_name].segment(raw, sample)
         except Exception:
             return None
