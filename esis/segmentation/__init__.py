@@ -2,6 +2,7 @@
 
 from esis.segmentation.adapter_vit_cnn import AdapterVitCnnConfig, AdapterVitCnnSegmenter
 from esis.segmentation.base import BaseSegmenter, SegmentationModel, SegmentationResult
+from esis.segmentation.checkpoints import CheckpointResolution, resolve_adapter_vit_cnn_checkpoint, resolve_matis_checkpoint
 from esis.segmentation.classical import ClassicalInstrumentSegmenter, ClassicalSegmentationConfig, MaskLoaderSegmenter
 from esis.segmentation.factory import SEGMENTER_REGISTRY, available_segmenters, create_segmenter
 from esis.segmentation.matis import MatisConfig, MatisSegmenter
@@ -40,6 +41,7 @@ __all__ = [
     "BaseSegmenter",
     "ClassicalInstrumentSegmenter",
     "ClassicalSegmentationConfig",
+    "CheckpointResolution",
     "MatisConfig",
     "MatisSegmenter",
     "MaskLoaderSegmenter",
@@ -69,6 +71,8 @@ __all__ = [
     "prepare_imagenet_input",
     "prepare_model_input",
     "remove_small_components",
+    "resolve_adapter_vit_cnn_checkpoint",
+    "resolve_matis_checkpoint",
     "resize_image",
     "resize_mask",
     "resize_like",

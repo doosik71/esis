@@ -31,6 +31,7 @@ class Sam2ZeroShotSegmenter(BaseSegmenter):
         self.processor = self._load_processor()
         self.model = self._load_model().to(self.device)
         self.model.eval()
+        self.checkpoint_loaded = True
 
     def _load_processor(self) -> Sam2Processor:
         try:

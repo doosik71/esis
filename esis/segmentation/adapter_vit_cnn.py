@@ -10,12 +10,12 @@ from torch import nn
 
 from esis.datasets.schema import DatasetSample
 from esis.segmentation.base import BaseSegmenter, SegmentationResult
+from esis.segmentation.checkpoints import CheckpointResolution, resolve_adapter_vit_cnn_checkpoint
 from esis.segmentation.postprocessing import postprocess_binary_mask
 from esis.segmentation.torch_utils import (
     load_state_dict_flexible,
     prepare_torch_image,
     resolve_device,
-    resize_mask_to_original,
 )
 
 
@@ -79,6 +79,7 @@ class AdapterVitCnnConfig:
     input_size: tuple[int, int] = (518, 518)
     decoder_channels: int = 128
     checkpoint_path: str | None = None
+    dataset_name: str | None = None
     device: str | None = None
     threshold: float = 0.5
     min_component_area: int = 128
@@ -92,16 +93,21 @@ class AdapterVitCnnSegmenter(BaseSegmenter):
     def __init__(self, config: AdapterVitCnnConfig | None = None) -> None:
         self.config = config or AdapterVitCnnConfig()
         self.device = resolve_device(self.config.device)
+        self.checkpoint_resolution = resolve_adapter_vit_cnn_checkpoint(
+            dataset_name=self.config.dataset_name,
+            explicit_path=self.config.checkpoint_path,
+        )
         self.model = AdapterVitCnnNet(
             backbone_name=self.config.backbone_name,
             decoder_channels=self.config.decoder_channels,
             pretrained_backbone=self.config.pretrained_backbone,
         ).to(self.device)
         self.model.eval()
-        self.checkpoint_loaded = load_state_dict_flexible(self.model, self.config.checkpoint_path)
+        self.checkpoint_loaded = load_state_dict_flexible(self.model, self.checkpoint_resolution.checkpoint_path)
 
     @torch.inference_mode()
     def segment(self, image: np.ndarray, sample: DatasetSample | None = None) -> SegmentationResult:
+        self._maybe_load_dataset_checkpoint(sample)
         tensor, original_shape = prepare_torch_image(image, self.config.input_size, self.device)
         logits = self.model(tensor)
         logits = torch.nn.functional.interpolate(logits, size=original_shape, mode="bilinear", align_corners=False)
@@ -124,6 +130,27 @@ class AdapterVitCnnSegmenter(BaseSegmenter):
                 "backbone_name": self.config.backbone_name,
                 "pretrained_backbone": self.config.pretrained_backbone,
                 "checkpoint_loaded": self.checkpoint_loaded,
+                "checkpoint_path": self.checkpoint_resolution.checkpoint_path,
+                "checkpoint_source": self.checkpoint_resolution.source,
                 "device": str(self.device),
             },
         )
+
+    def _maybe_load_dataset_checkpoint(self, sample: DatasetSample | None) -> None:
+        if self.checkpoint_loaded:
+            return
+        if sample is None or not sample.dataset_name:
+            return
+        if self.config.dataset_name == sample.dataset_name:
+            return
+        resolution = resolve_adapter_vit_cnn_checkpoint(
+            dataset_name=sample.dataset_name,
+            explicit_path=self.config.checkpoint_path,
+        )
+        if resolution.checkpoint_path is None:
+            self.checkpoint_resolution = resolution
+            self.config.dataset_name = sample.dataset_name
+            return
+        self.checkpoint_loaded = load_state_dict_flexible(self.model, resolution.checkpoint_path)
+        self.checkpoint_resolution = resolution
+        self.config.dataset_name = sample.dataset_name

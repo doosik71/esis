@@ -7,6 +7,8 @@ from pathlib import Path
 from esis import __version__
 from esis.datasets import export_dataset_debug
 from esis.gui.dataset_preview import launch_dataset_preview_app
+from esis.segmentation import available_segmenters
+from esis.segmentation.runner import SegmentationRunSelection, run_segmentation_selection
 from esis.utils.config import default_dataset_roots
 
 
@@ -55,6 +57,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Number of samples to validate from the index.",
     )
     dataset_subparsers.add_parser("gui", help="Launch the dataset preview GUI.")
+
+    segment_parser = subparsers.add_parser("segment", help="Segmentation execution utilities.")
+    segment_subparsers = segment_parser.add_subparsers(dest="segment_command")
+
+    run_parser = segment_subparsers.add_parser("run", help="Run one backend on one image, one split, or one sequence.")
+    run_parser.add_argument(
+        "--dataset",
+        required=True,
+        choices=sorted(default_dataset_roots().keys()),
+        help="Dataset name to use.",
+    )
+    run_parser.add_argument(
+        "--backend",
+        required=True,
+        choices=available_segmenters(),
+        help="Segmentation backend to run.",
+    )
+    run_parser.add_argument("--sample-id", help="Run on one sample id.")
+    run_parser.add_argument("--split", help="Run on all samples in one split.")
+    run_parser.add_argument("--sequence-id", help="Run on all samples in one sequence.")
+    run_parser.add_argument(
+        "--limit",
+        type=int,
+        default=0,
+        help="Optional cap on number of selected samples.",
+    )
     return parser
 
 
@@ -80,6 +108,20 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "dataset" and args.dataset_command == "gui":
         return launch_dataset_preview_app()
+
+    if args.command == "segment" and args.segment_command == "run":
+        summary = run_segmentation_selection(
+            SegmentationRunSelection(
+                dataset_name=args.dataset,
+                backend_name=args.backend,
+                sample_id=args.sample_id,
+                split=args.split,
+                sequence_id=args.sequence_id,
+                limit=args.limit,
+            )
+        )
+        print(json.dumps(summary, indent=2))
+        return 0
 
     print("ESIS project is initialized.")
     print("Use this entry point to add dataset, segmentation, tracking, and evaluation commands.")

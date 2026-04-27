@@ -39,6 +39,7 @@ class SurgSam2Segmenter(BaseSegmenter):
             self.predictor = SAM2ImagePredictor.from_pretrained(self.config.model_id, device=str(self.device))
 
         self.previous_low_res_masks: dict[str, np.ndarray] = {}
+        self.checkpoint_loaded = True
 
     def _build_prompts(self, rgb: np.ndarray, sample: DatasetSample | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         height, width = rgb.shape[:2]

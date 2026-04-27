@@ -9,6 +9,7 @@ from torch import nn
 
 from esis.datasets.schema import DatasetSample
 from esis.segmentation.base import BaseSegmenter, SegmentationResult
+from esis.segmentation.checkpoints import resolve_matis_checkpoint
 from esis.segmentation.postprocessing import postprocess_binary_mask
 from esis.segmentation.torch_utils import load_state_dict_flexible, prepare_torch_image, resolve_device
 
@@ -83,6 +84,8 @@ class MatisConfig:
     decoder_dim: int = 128
     num_queries: int = 8
     checkpoint_path: str | None = None
+    dataset_name: str | None = None
+    fold: int | None = None
     device: str | None = None
     threshold: float = 0.45
     min_component_area: int = 96
@@ -96,6 +99,11 @@ class MatisSegmenter(BaseSegmenter):
     def __init__(self, config: MatisConfig | None = None) -> None:
         self.config = config or MatisConfig()
         self.device = resolve_device(self.config.device)
+        self.checkpoint_resolution = resolve_matis_checkpoint(
+            dataset_name=self.config.dataset_name,
+            explicit_path=self.config.checkpoint_path,
+            fold=self.config.fold,
+        )
         self.model = MatisNet(
             backbone_name=self.config.backbone_name,
             pretrained_backbone=self.config.pretrained_backbone,
@@ -103,10 +111,11 @@ class MatisSegmenter(BaseSegmenter):
             num_queries=self.config.num_queries,
         ).to(self.device)
         self.model.eval()
-        self.checkpoint_loaded = load_state_dict_flexible(self.model, self.config.checkpoint_path)
+        self.checkpoint_loaded = load_state_dict_flexible(self.model, self.checkpoint_resolution.checkpoint_path)
 
     @torch.inference_mode()
     def segment(self, image: np.ndarray, sample: DatasetSample | None = None) -> SegmentationResult:
+        self._maybe_load_dataset_checkpoint(sample)
         tensor, original_shape = prepare_torch_image(image, self.config.input_size, self.device)
         logits = self.model(tensor)
         logits = torch.nn.functional.interpolate(logits, size=original_shape, mode="bilinear", align_corners=False)
@@ -129,6 +138,33 @@ class MatisSegmenter(BaseSegmenter):
                 "backbone_name": self.config.backbone_name,
                 "pretrained_backbone": self.config.pretrained_backbone,
                 "checkpoint_loaded": self.checkpoint_loaded,
+                "checkpoint_path": self.checkpoint_resolution.checkpoint_path,
+                "checkpoint_source": self.checkpoint_resolution.source,
                 "device": str(self.device),
             },
         )
+
+    def _maybe_load_dataset_checkpoint(self, sample: DatasetSample | None) -> None:
+        if self.checkpoint_loaded:
+            return
+        if sample is None or not sample.dataset_name:
+            return
+        if self.config.dataset_name == sample.dataset_name:
+            return
+        fold = self.config.fold
+        if fold is None and sample.dataset_name == "endovis17":
+            fold = 3
+        resolution = resolve_matis_checkpoint(
+            dataset_name=sample.dataset_name,
+            explicit_path=self.config.checkpoint_path,
+            fold=fold,
+        )
+        if resolution.checkpoint_path is None:
+            self.checkpoint_resolution = resolution
+            self.config.dataset_name = sample.dataset_name
+            self.config.fold = fold
+            return
+        self.checkpoint_loaded = load_state_dict_flexible(self.model, resolution.checkpoint_path)
+        self.checkpoint_resolution = resolution
+        self.config.dataset_name = sample.dataset_name
+        self.config.fold = fold

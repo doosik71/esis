@@ -21,3 +21,15 @@ def index_root(root: Path | None = None) -> Path:
 
 def debug_root(root: Path | None = None) -> Path:
     return (root or project_root()) / "temp" / "debug"
+
+
+def cache_root(root: Path | None = None) -> Path:
+    return (root or project_root()) / "temp" / "cache"
+
+
+def checkpoint_root(root: Path | None = None) -> Path:
+    return cache_root(root) / "checkpoints"
+
+
+def runs_root(root: Path | None = None) -> Path:
+    return (root or project_root()) / "temp" / "runs"

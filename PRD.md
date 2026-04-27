@@ -77,6 +77,9 @@ Tracking the instrument tip in surgical video is a core capability for robotic s
 - Accept either online model inference or precomputed segmentation masks.
 - Support both single-frame and batch inference workflows.
 - Expose a unified segmenter interface regardless of model family.
+- Document backend-specific checkpoint discovery and pretrained-weight behavior.
+- Provide a CLI path for running one backend on one image, one split, or one sequence.
+- Save segmentation outputs, manifests, and overlays under `temp/runs/`.
 - Support the following model families in the current roadmap:
   - ViT + CNN adapter style supervised model
   - MATIS-style masked-attention transformer model
@@ -228,6 +231,12 @@ Pipeline:
 - Save experiment outputs
 - Measure speed and localization quality
 - Generate qualitative overlays and videos
+
+### Segmentation execution notes
+
+- Task-specific checkpoints should be stored under `temp/cache/checkpoints/`.
+- Backend runners should resolve checkpoints by convention before requiring explicit paths.
+- Segmentation CLI runs should write masks, overlays, and metadata into `temp/runs/segment/...`.
 
 ## 11. Success Criteria
 

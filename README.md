@@ -67,6 +67,57 @@ The project will implement the following segmentation backends behind one shared
 
 The first item is a non-learning baseline for verification. The latter four are the active deep-learning model targets for this project.
 
+## Checkpoints And Weights
+
+Backend weight discovery follows two layers:
+
+- Generic pretrained backbones are downloaded and cached by the underlying framework when needed.
+- Task-specific checkpoints are searched under `temp/cache/checkpoints/`.
+
+Current backend behavior:
+
+- `mask_loader`
+  - No model weights are required.
+- `adapter_vit_cnn`
+  - Uses a pretrained DINOv2-style backbone through `timm`.
+  - Looks for task-specific checkpoints under `temp/cache/checkpoints/adapter_vit_cnn/<dataset>/`.
+- `matis`
+  - Uses a pretrained SAM2 Hiera-style backbone through `timm`.
+  - Looks for task-specific checkpoints under `temp/cache/checkpoints/matis/<dataset>/`.
+  - Fold-specific EndoVis17 checkpoints are expected under `temp/cache/checkpoints/matis/endovis17/fold{n}/`.
+- `sam2_zero_shot`
+  - Uses `facebook/sam2.1-hiera-tiny` through `transformers`.
+  - No local task-specific checkpoint is required for zero-shot inference.
+- `surgsam2`
+  - Uses the vendored official SurgSAM-2 code under `temp/cache/vendors/Surgical-SAM-2`.
+  - Loads official SAM2 weights from Hugging Face when needed.
+
+The detailed local checkpoint convention is documented in:
+
+- [temp/cache/checkpoints/README.md](./temp/cache/checkpoints/README.md)
+
+## Segmentation CLI
+
+The repository now includes a segmentation runner CLI that saves outputs under `temp/runs/`.
+
+Examples:
+
+```bash
+uv run python main.py segment run --dataset endovis17 --backend sam2_zero_shot --sample-id train/seq_1_frame000.png
+uv run python main.py segment run --dataset endovis17 --backend adapter_vit_cnn --split train --limit 8
+uv run python main.py segment run --dataset endovis18 --backend matis --sequence-id sequence_1
+```
+
+Output layout:
+
+- `temp/runs/segment/<backend>/<dataset>/<selection>_<timestamp>/`
+- one subdirectory per processed sample
+- `mask.png`
+- `overlay.png`
+- `result.json`
+- run-level `manifest.json`
+- run-level `summary.json`
+
 ## Tracking Idea
 
 The initial tracking pipeline will follow this flow:
@@ -79,7 +130,7 @@ The initial tracking pipeline will follow this flow:
 
 ## Documents
 
-- Detailed implementation plan: [PRD.md](/d:/dev/esis/PRD.md)
+- Detailed implementation plan: [PRD.md](./PRD.md)
 
 ## Current Status
 
