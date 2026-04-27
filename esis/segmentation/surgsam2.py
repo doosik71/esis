@@ -1,20 +1,33 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
+import shutil
+import uuid
 
 import numpy as np
+from PIL import Image
 
 from esis.datasets.schema import DatasetSample
 from esis.segmentation.base import BaseSegmenter, SegmentationResult
 from esis.segmentation.postprocessing import postprocess_binary_mask
-from esis.segmentation.torch_utils import pick_best_mask, resolve_device, to_rgb_uint8, vendor_path
+from esis.segmentation.torch_utils import resolve_device, to_rgb_uint8, vendor_path
+from esis.utils.config import project_root, runs_root
+from esis.utils.io import ensure_dir
+
+
+DEFAULT_SURGSAM2_CHECKPOINT_URL = (
+    "https://drive.usercontent.google.com/download"
+    "?id=1DyrrLKst1ZQwkgKM7BWCCwLxSXAgOcMI&export=download&authuser=0"
+)
 
 
 @dataclass(slots=True)
 class SurgSam2Config:
     vendor_root: str = "temp/cache/vendors/Surgical-SAM-2"
     model_id: str = "facebook/sam2.1-hiera-tiny"
+    checkpoint_path: str = "temp/model/sam2.1_hiera_s_endo18.pth"
+    model_config: str = "configs/sam2.1/sam2.1_hiera_s.yaml"
     device: str | None = None
     threshold: float = 0.0
     min_component_area: int = 96
@@ -29,17 +42,30 @@ class SurgSam2Segmenter(BaseSegmenter):
     def __init__(self, config: SurgSam2Config | None = None) -> None:
         self.config = config or SurgSam2Config()
         self.device = resolve_device(self.config.device)
-        vendor_root = Path(self.config.vendor_root)
+        root = project_root()
+        vendor_root = root / self.config.vendor_root
         if not vendor_root.exists():
             raise FileNotFoundError(f"SurgSAM-2 vendor repository not found: {vendor_root}")
 
+        checkpoint_path = root / self.config.checkpoint_path
+        if not checkpoint_path.exists():
+            print(
+                "SurgSAM-2 checkpoint not found at "
+                f"{checkpoint_path}. Download it from {DEFAULT_SURGSAM2_CHECKPOINT_URL}"
+            )
+            raise FileNotFoundError(f"SurgSAM-2 checkpoint not found: {checkpoint_path}")
+
         with vendor_path(vendor_root):
-            from sam2.sam2_image_predictor import SAM2ImagePredictor
+            from sam2.build_sam import build_sam2_video_predictor
 
-            self.predictor = SAM2ImagePredictor.from_pretrained(self.config.model_id, device=str(self.device))
+            self.predictor = build_sam2_video_predictor(
+                config_file=self.config.model_config,
+                ckpt_path=str(checkpoint_path),
+                device=str(self.device),
+            )
 
-        self.previous_low_res_masks: dict[str, np.ndarray] = {}
         self.checkpoint_loaded = True
+        self.checkpoint_path = str(checkpoint_path)
 
     def _build_prompts(self, rgb: np.ndarray, sample: DatasetSample | None = None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         height, width = rgb.shape[:2]
@@ -50,23 +76,8 @@ class SurgSam2Segmenter(BaseSegmenter):
 
     def segment(self, image: np.ndarray, sample: DatasetSample | None = None) -> SegmentationResult:
         rgb = to_rgb_uint8(image)
-        sequence_id = sample.sequence_id if sample is not None else "__default__"
         points, labels, box = self._build_prompts(rgb, sample=sample)
-
-        self.predictor.set_image(rgb)
-        previous = self.previous_low_res_masks.get(sequence_id) if self.config.use_temporal_memory else None
-        masks, scores, low_res = self.predictor.predict(
-            point_coords=points,
-            point_labels=labels,
-            box=box,
-            mask_input=previous,
-            multimask_output=True,
-            return_logits=True,
-        )
-        best_mask = pick_best_mask(masks, scores=scores)
-        best_low_res = pick_best_mask(low_res, scores=scores)
-        if self.config.use_temporal_memory:
-            self.previous_low_res_masks[sequence_id] = best_low_res[None, ...]
+        best_mask = self._segment_single_frame(rgb, points=points, labels=labels, box=box)
 
         mask = (best_mask > self.config.threshold).astype(np.uint8) * 255
         mask = postprocess_binary_mask(
@@ -84,7 +95,34 @@ class SurgSam2Segmenter(BaseSegmenter):
                 "segmenter": self.name,
                 "model_type": "official_surgsam2",
                 "model_id": self.config.model_id,
+                "checkpoint_path": self.checkpoint_path,
                 "device": str(self.device),
-                "used_temporal_memory": self.config.use_temporal_memory,
+                "used_temporal_memory": False,
             },
         )
+
+    def _segment_single_frame(
+        self,
+        rgb: np.ndarray,
+        points: np.ndarray,
+        labels: np.ndarray,
+        box: np.ndarray,
+    ) -> np.ndarray:
+        # The SurgSAM-2 checkpoint is trained for the video predictor path.
+        # To support the GUI's per-frame API, wrap one frame as a 1-frame sequence.
+        temp_dir = ensure_dir(runs_root(project_root()) / "_surgsam2_frames" / uuid.uuid4().hex)
+        try:
+            frame_path = temp_dir / "00000.jpg"
+            Image.fromarray(rgb).save(frame_path)
+            inference_state = self.predictor.init_state(video_path=str(temp_dir))
+            _, _, video_res_masks = self.predictor.add_new_points_or_box(
+                inference_state=inference_state,
+                frame_idx=0,
+                obj_id=1,
+                points=points,
+                labels=labels,
+                box=box,
+            )
+            return video_res_masks[0, 0].detach().cpu().numpy()
+        finally:
+            shutil.rmtree(temp_dir, ignore_errors=True)

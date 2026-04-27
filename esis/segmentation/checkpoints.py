@@ -80,11 +80,13 @@ def resolve_matis_checkpoint(
                 searched_paths=[str(path) for path in searched],
             )
 
+    workspace_default = project_root() / "temp" / "model" / "matis_pretrained_model.pyth"
     root = checkpoint_root()
     backend_root = root / "matis"
     dataset_token = (dataset_name or "generic").lower()
     fold_name = f"fold{fold}" if fold is not None else "default"
     candidates = [
+        workspace_default,
         backend_root / dataset_token / fold_name / "matis_pretrained_model.pyth",
         backend_root / dataset_token / "matis_pretrained_model.pyth",
         backend_root / dataset_token / fold_name / "checkpoint.pyth",

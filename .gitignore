@@ -11,7 +11,4 @@ wheels/
 /data
 
 # Project outputs
-/temp/cache/
-/temp/debug/
-/temp/index/
-/temp/runs/
+/temp/*
